@@ -16,13 +16,10 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "ink": "^5.2.0",
-    "react": "^18.3.1",
     "commander": "^13.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
-    "@types/react": "^18.3.20",
     "tsup": "^8.4.0",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0"

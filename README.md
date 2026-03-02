@@ -12,7 +12,7 @@ Supports both **Insta360 Link** and **Insta360 Link 2**.
 - **Image Controls** -- brightness, contrast, saturation, sharpness, white balance, exposure, focus
 - **Presets** -- save and recall up to 6 camera positions
 - **Gimbal Reset** -- return camera to center position
-- **Interactive TUI** -- real-time terminal interface with keyboard controls
+- **Interactive TUI** -- live video preview via `mpv` with keyboard controls
 - **CLI** -- scriptable command-line interface
 
 ## How It Works
@@ -41,7 +41,7 @@ Tracking framing is controlled via **Selector 19** (1-byte): `0x01` head, `0x02`
 - Node.js 22+
 - `v4l2-ctl` (usually part of `v4l2-utils`)
 - `gcc` (for auto-compiling the UVC XU helper)
-- `ffmpeg` + `chafa` (for live video preview in the TUI)
+- `mpv` (for live video preview in the TUI, uses `--vo=tct` true-color output)
 - Insta360 Link connected via USB
 
 ## Install
@@ -122,7 +122,7 @@ npx tsx src/cli.ts -v tracking on
 npx tsx src/tui.ts
 ```
 
-The TUI opens a live video stream to wake the camera and shows a real-time ASCII preview alongside the controls. Requires `ffmpeg` and `chafa`.
+The TUI renders live video directly in the terminal using `mpv --vo=tct` (true-color half-block characters). The video fills the top portion of the terminal with a control bar at the bottom. Opening the stream also wakes the camera from standby.
 
 | Key | Action |
 |-----|--------|
@@ -137,6 +137,7 @@ The TUI opens a live video stream to wake the camera and shows a real-time ASCII
 | `h` | Home / center gimbal |
 | `v` | Toggle video preview |
 | `1-6` | Recall preset |
+| `Shift+1-6` | Save preset |
 | `q` | Quit |
 
 ## Project Structure
@@ -146,8 +147,7 @@ src/
   v4l2.ts           V4L2 + UVC Extension Unit bindings
   insta360link.ts    High-level camera controller class
   cli.ts             Commander-based CLI
-  tui.ts             Ink-based interactive TUI with live video preview
-  video.ts           Camera stream keeper and terminal video renderer
+  tui.ts             Raw ANSI TUI with mpv live video preview
 ```
 
 ## Credits
