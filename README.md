@@ -41,6 +41,7 @@ Tracking framing is controlled via **Selector 19** (1-byte): `0x01` head, `0x02`
 - Node.js 22+
 - `v4l2-ctl` (usually part of `v4l2-utils`)
 - `gcc` (for auto-compiling the UVC XU helper)
+- `ffmpeg` + `chafa` (for live video preview in the TUI)
 - Insta360 Link connected via USB
 
 ## Install
@@ -121,6 +122,8 @@ npx tsx src/cli.ts -v tracking on
 npx tsx src/tui.ts
 ```
 
+The TUI opens a live video stream to wake the camera and shows a real-time ASCII preview alongside the controls. Requires `ffmpeg` and `chafa`.
+
 | Key | Action |
 |-----|--------|
 | Arrows | Pan / Tilt |
@@ -132,6 +135,7 @@ npx tsx src/tui.ts
 | `o` | Toggle Overhead |
 | `n` | Normal mode |
 | `h` | Home / center gimbal |
+| `v` | Toggle video preview |
 | `1-6` | Recall preset |
 | `q` | Quit |
 
@@ -142,7 +146,8 @@ src/
   v4l2.ts           V4L2 + UVC Extension Unit bindings
   insta360link.ts    High-level camera controller class
   cli.ts             Commander-based CLI
-  tui.ts             Ink-based interactive TUI
+  tui.ts             Ink-based interactive TUI with live video preview
+  video.ts           Camera stream keeper and terminal video renderer
 ```
 
 ## Credits

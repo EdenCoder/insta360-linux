@@ -2,18 +2,18 @@
 /**
  * tui.ts - Terminal UI for Insta360 Link webcam controller
  * =========================================================
- * Interactive terminal interface with real-time camera controls.
+ * Interactive terminal interface with live video preview and camera controls.
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { render, Box, Text, useInput, useApp } from "ink";
 import {
   Insta360Link,
   CameraMode,
   TrackingFrame,
-  TrackingTarget,
   type CtrlRange,
 } from "./insta360link.js";
+import { VideoStream } from "./video.js";
 
 // ===== Components =====
 
@@ -135,6 +135,30 @@ function PTZDisplay({
   );
 }
 
+function VideoPreview({ frame }: { frame: string }) {
+  if (!frame) {
+    return React.createElement(
+      Box,
+      {
+        borderStyle: "single",
+        borderColor: "gray",
+        width: 64,
+        height: 22,
+        justifyContent: "center",
+        alignItems: "center",
+      },
+      React.createElement(Text, { dimColor: true }, "Starting camera...")
+    );
+  }
+
+  // chafa output contains ANSI codes. Ink's Text can render them.
+  return React.createElement(
+    Box,
+    { borderStyle: "single", borderColor: "gray", flexDirection: "column" },
+    React.createElement(Text, null, frame.trimEnd())
+  );
+}
+
 function HelpBar() {
   const keys = [
     ["arrows", "Pan/Tilt"],
@@ -146,6 +170,7 @@ function HelpBar() {
     ["o", "Overhead"],
     ["n", "Normal"],
     ["h", "Home/Center"],
+    ["v", "Toggle video"],
     ["1-6", "Recall preset"],
     ["S+1-6", "Save preset"],
     ["q", "Quit"],
@@ -153,12 +178,13 @@ function HelpBar() {
 
   return React.createElement(
     Box,
-    { flexDirection: "column", borderStyle: "single", borderColor: "gray", paddingX: 1 },
-    React.createElement(
-      Text,
-      { bold: true, color: "yellow" },
-      "Controls"
-    ),
+    {
+      flexDirection: "column",
+      borderStyle: "single",
+      borderColor: "gray",
+      paddingX: 1,
+    },
+    React.createElement(Text, { bold: true, color: "yellow" }, "Controls"),
     React.createElement(
       Box,
       { flexDirection: "row", flexWrap: "wrap", columnGap: 2 },
@@ -175,11 +201,10 @@ function HelpBar() {
 }
 
 function LogView({ logs }: { logs: string[] }) {
-  const visible = logs.slice(-5);
+  const visible = logs.slice(-3);
   return React.createElement(
     Box,
     { flexDirection: "column", marginTop: 1 },
-    React.createElement(Text, { dimColor: true }, "--- Log ---"),
     ...visible.map((l, i) =>
       React.createElement(Text, { key: i, dimColor: true }, l)
     )
@@ -188,7 +213,13 @@ function LogView({ logs }: { logs: string[] }) {
 
 // ===== Main App =====
 
-function App({ cam }: { cam: Insta360Link }) {
+function App({
+  cam,
+  videoStream,
+}: {
+  cam: Insta360Link;
+  videoStream: VideoStream;
+}) {
   const { exit } = useApp();
   const [mode, setMode] = useState(cam.currentMode);
   const [tracking, setTracking] = useState(cam.aiTrackingEnabled);
@@ -197,6 +228,8 @@ function App({ cam }: { cam: Insta360Link }) {
   const [tilt, setTilt] = useState(cam.getTiltAbsolute());
   const [zoom, setZoom] = useState(cam.getZoom());
   const [logs, setLogs] = useState<string[]>([]);
+  const [videoFrame, setVideoFrame] = useState("");
+  const [showVideo, setShowVideo] = useState(true);
 
   useEffect(() => {
     cam.onLog = (msg) => {
@@ -204,15 +237,33 @@ function App({ cam }: { cam: Insta360Link }) {
     };
   }, [cam]);
 
+  // Poll video frames
+  useEffect(() => {
+    if (!showVideo) return;
+
+    const interval = setInterval(() => {
+      const f = videoStream.lastFrame;
+      if (f) setVideoFrame(f);
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [videoStream, showVideo]);
+
   const PAN_STEP = 5;
   const TILT_STEP = 5;
   const ZOOM_STEP = 10;
 
   useInput((input, key) => {
-    // Quit
     if (input === "q") {
+      videoStream.stop();
       cam.close();
       exit();
+      return;
+    }
+
+    // Toggle video preview
+    if (input === "v") {
+      setShowVideo((prev) => !prev);
       return;
     }
 
@@ -264,7 +315,11 @@ function App({ cam }: { cam: Insta360Link }) {
 
     // Frame mode cycle
     if (input === "f") {
-      const frames = [TrackingFrame.Head, TrackingFrame.HalfBody, TrackingFrame.FullBody];
+      const frames = [
+        TrackingFrame.Head,
+        TrackingFrame.HalfBody,
+        TrackingFrame.FullBody,
+      ];
       const idx = (frames.indexOf(frame) + 1) % frames.length;
       cam.setTrackingFrame(frames[idx]);
       setFrame(frames[idx]);
@@ -318,16 +373,33 @@ function App({ cam }: { cam: Insta360Link }) {
       "Insta360 Link Controller"
     ),
     React.createElement(StatusBar, { cam }),
-    React.createElement(ModeIndicator, { mode, tracking, frame }),
-    React.createElement(PTZDisplay, {
-      pan,
-      tilt,
-      zoom,
-      panRange: cam.panRange,
-      tiltRange: cam.tiltRange,
-      zoomRange: cam.zoomRange,
-    }),
-    React.createElement(HelpBar, null),
+    // Main layout: video on left, controls on right
+    React.createElement(
+      Box,
+      { flexDirection: "row", gap: 2 },
+      // Left: video preview
+      showVideo &&
+        React.createElement(
+          Box,
+          { flexDirection: "column", flexShrink: 0 },
+          React.createElement(VideoPreview, { frame: videoFrame })
+        ),
+      // Right: controls
+      React.createElement(
+        Box,
+        { flexDirection: "column", flexGrow: 1 },
+        React.createElement(ModeIndicator, { mode, tracking, frame }),
+        React.createElement(PTZDisplay, {
+          pan,
+          tilt,
+          zoom,
+          panRange: cam.panRange,
+          tiltRange: cam.tiltRange,
+          zoomRange: cam.zoomRange,
+        }),
+        React.createElement(HelpBar, null)
+      )
+    ),
     React.createElement(LogView, { logs })
   );
 }
@@ -348,7 +420,23 @@ function main() {
     process.exit(1);
   }
 
-  render(React.createElement(App, { cam }));
+  // Start video stream to wake up the camera and provide preview frames
+  const videoStream = new VideoStream(devPath, 60, 18);
+  videoStream.start(2);
+
+  // Clean up on exit
+  process.on("SIGINT", () => {
+    videoStream.stop();
+    cam.close();
+    process.exit(0);
+  });
+  process.on("SIGTERM", () => {
+    videoStream.stop();
+    cam.close();
+    process.exit(0);
+  });
+
+  render(React.createElement(App, { cam, videoStream }));
 }
 
 main();
