@@ -1,0 +1,20 @@
+node_modules/
+dist/
+*.js
+!tsup.config.ts
+
+# Compiled C helper (auto-generated at runtime)
+src/xu_helper
+src/xu_helper.c
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Environment / secrets
+.env
+.env.*
